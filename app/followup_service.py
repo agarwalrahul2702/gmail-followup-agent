@@ -7,7 +7,14 @@ from sqlalchemy import select
 from app.classifier import classify
 from app.database import Session, user_lock
 from app.followup_policy import due_at
-from app.gmail_service import Gmail, authored_body, external_reply, followup_message, is_own
+from app.gmail_service import (
+    Gmail,
+    GmailAuthError,
+    authored_body,
+    external_reply,
+    followup_message,
+    is_own,
+)
 from app.models import ActivityLog, FollowupThread, User, utcnow
 from app.rules import load_rules
 
@@ -211,6 +218,16 @@ def process_thread(db, user, thread_id, gmail, rules, now):
         gmail.send_thread_reply(
             original, thread.recipient_email, user.email, body, thread.pending_message_id, number
         )
+    except GmailAuthError:
+        user.enabled = False
+        close(
+            thread,
+            "REVIEW_REQUIRED",
+            "Gmail authorization failed during send. Reconnect and inspect Gmail.",
+        )
+        log(db, user, "ERROR", thread.closed_reason, thread)
+        db.commit()
+        return
     except Exception:
         close(
             thread,
@@ -238,6 +255,12 @@ def process_user_locked(user_id, gmail_factory=None, now=None):
         gmail, rules = gmail_factory(user), load_rules()
         try:
             discover(db, user, gmail, rules)
+        except GmailAuthError:
+            db.rollback()
+            user.enabled = False
+            log(db, user, "ERROR", "Gmail authorization revoked; account paused. Reconnect Gmail.")
+            db.commit()
+            return
         except Exception:
             db.rollback()
             log(
@@ -258,6 +281,19 @@ def process_user_locked(user_id, gmail_factory=None, now=None):
         for thread_id in ids:
             try:
                 process_thread(db, user, thread_id, gmail, rules, now)
+                if not user.enabled:
+                    break
+            except GmailAuthError:
+                db.rollback()
+                user.enabled = False
+                log(
+                    db,
+                    user,
+                    "ERROR",
+                    "Gmail authorization revoked; account paused. Reconnect Gmail.",
+                )
+                db.commit()
+                break
             except Exception:
                 db.rollback()
                 thread = db.get(FollowupThread, thread_id)

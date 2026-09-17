@@ -8,6 +8,7 @@ from email.utils import getaddresses, parseaddr
 from html import unescape
 
 import httpx
+from google.auth.exceptions import RefreshError
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 
@@ -21,6 +22,10 @@ SCOPES = [
 
 
 class GmailError(Exception):
+    pass
+
+
+class GmailAuthError(GmailError):
     pass
 
 
@@ -147,8 +152,12 @@ class Gmail:
         try:
             if not self.credentials.valid:
                 self.credentials.refresh(Request())
+        except RefreshError as exc:
+            if not exc.retryable:
+                raise GmailAuthError("Gmail authorization revoked. Reconnect Gmail.") from None
+            raise GmailError("Gmail authorization temporarily unavailable.") from None
         except Exception:
-            raise GmailError("Gmail authorization failed. Reconnect Gmail.") from None
+            raise GmailError("Gmail authorization temporarily unavailable.") from None
         # Never retry sends: a timeout can mean the message was accepted.
         attempts = 3 if method == "GET" else 1
         for attempt in range(attempts):
@@ -160,6 +169,8 @@ class Gmail:
                     timeout=30,
                     **kwargs,
                 )
+                if response.status_code == 401:
+                    raise GmailAuthError("Gmail authorization expired. Reconnect Gmail.")
                 if response.status_code == 429 or response.status_code >= 500:
                     if attempt < attempts - 1:
                         time.sleep(2**attempt)

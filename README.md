@@ -75,7 +75,7 @@ Exact OAuth scopes:
 
 No delete/modify mailbox permission is requested. Threaded replies set the thread ID, subject, References and In-Reply-To as required by [Gmail threading documentation](https://developers.google.com/workspace/gmail/api/guides/threads). See [Google's scope classification](https://developers.google.com/workspace/gmail/api/auth/scopes) for verification requirements. [Testing-mode refresh tokens](https://developers.google.com/identity/protocols/oauth2#expiration) for these scopes normally expire after seven days; reconnect or publish your consent configuration as appropriate. A public multi-user OAuth application may require Google verification; cloning this repository does not bypass that process.
 
-State, ten-minute OAuth expiry, and PKCE protect the callback. Google must return both scopes and a refresh token. The authenticated Gmail profile is the app identity; there are no passwords. Missing/revoked tokens require reconnection.
+State, ten-minute OAuth expiry, and PKCE protect the callback. Google must return both scopes and a refresh token. The authenticated Gmail profile is the app identity; there are no passwords. Missing/revoked tokens require reconnection. Permanent refresh-token failures or HTTP 401 pause the account so the scheduler does not retry indefinitely.
 
 ## How duplicate protection works
 

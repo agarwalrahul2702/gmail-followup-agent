@@ -168,3 +168,21 @@ def test_pause_and_weekend(db, user):
     user.automatic_sending_enabled = True
     process_thread(db, user, thread.id, gmail, Rules(), NOW + timedelta(days=5))
     assert not gmail.sent
+
+
+def test_auth_failure_pauses_account(db, user, monkeypatch):
+    from sqlalchemy.orm import sessionmaker
+
+    import app.followup_service as service
+    from app.gmail_service import GmailAuthError
+
+    gmail = FakeGmail()
+
+    def revoked(days):
+        raise GmailAuthError("Revoked")
+
+    gmail.list_recent_sent_messages = revoked
+    monkeypatch.setattr(service, "Session", sessionmaker(db.get_bind(), expire_on_commit=False))
+    service.process_user_locked(user.id, gmail_factory=lambda user: gmail, now=NOW)
+    db.refresh(user)
+    assert user.enabled is False

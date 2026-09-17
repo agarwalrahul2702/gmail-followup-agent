@@ -181,3 +181,16 @@ def test_expired_oauth_state(client):
     )
     client.cookies.set("session", TimestampSigner(settings().session_secret).sign(payload).decode())
     assert client.get("/auth/callback?state=expected&code=code").status_code == 400
+
+
+def test_revoked_refresh_token_is_permanent():
+    from google.auth.exceptions import RefreshError
+
+    from app.gmail_service import GmailAuthError
+
+    gmail = Gmail("fake")
+    gmail.credentials = Mock(valid=False)
+    gmail.credentials.refresh.side_effect = RefreshError("invalid_grant")
+    with pytest.raises(GmailAuthError):
+        gmail.get_thread("thread")
+    assert gmail.credentials.refresh.call_count == 1
