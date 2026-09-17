@@ -1,0 +1,19 @@
+# Reloaded each run. Applies to existing active sequences too.
+followup_days = [3, 7]
+scan_days = 30
+max_ai_calls_per_run = 10
+# Blank uses your Gmail address. Replace with YOUR name.
+signature = ""
+exclude_phrases = []
+template1 = """{greeting}
+
+I wanted to follow up on my previous email regarding the opportunity. Have you had a chance to review my profile/CV?
+
+Thanks,
+{signature}"""
+template2 = """{greeting}
+
+Just following up once more regarding my earlier email. Please let me know if there may be a relevant opportunity or if any additional information would be helpful.
+
+Thanks,
+{signature}"""
